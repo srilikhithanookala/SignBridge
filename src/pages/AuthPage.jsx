@@ -1,80 +1,78 @@
 import React, { useState } from 'react';
-import { User, LogIn, UserPlus, LogOut, ShieldCheck, Sparkles, Volume2, Globe, Check } from 'lucide-react';
-import { loginUser, signUpUser, loginAsGuest, logoutUser, updateUserProfile } from '../services/supabaseClient';
+import { LogIn, UserPlus, LogOut, Sparkles, KeyRound, Mail, ArrowRight, CheckCircle2, ShieldCheck, RefreshCw } from 'lucide-react';
+import { sendOtpToEmail, verifyOtpCode, loginAsGuest, logoutUser } from '../services/supabaseClient';
 
-export default function AuthPage({ currentUser, setCurrentUser }) {
-  const [activeTab, setActiveTab] = useState('login'); // 'login' | 'signup'
-
-  // Form states
-  const [name, setName] = useState('');
+export default function AuthPage({ currentUser, setCurrentUser, isModal = false, onCloseModal = null }) {
+  const [step, setStep] = useState('email');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+
+  const [infoMsg, setInfoMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
-  const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Profile preferences
-  const [speechSpeed, setSpeechSpeed] = useState(currentUser?.speechSpeed || 1.0);
-  const [prefLang, setPrefLang] = useState(currentUser?.preferredLanguage || 'en-US');
-
-  const handleLogin = async (e) => {
+  const handleSendOtp = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setInfoMsg('');
+    if (!email || !email.includes('@')) {
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const user = await loginUser(email, password);
-      setCurrentUser(user);
+      const res = await sendOtpToEmail(email);
+      setInfoMsg(res.message);
+      setStep('otp');
     } catch (err) {
-      setErrorMsg(err.message || 'Failed to sign in. Please check your credentials.');
+      setErrorMsg(err.message || 'Failed to send OTP verification code.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSignUp = async (e) => {
+  const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    if (!otpCode || otpCode.length < 4) {
+      setErrorMsg('Please enter the 6-digit verification code.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const user = await signUpUser(name, email, password);
+      const user = await verifyOtpCode(email, otpCode, { name });
       setCurrentUser(user);
+      if (onCloseModal) onCloseModal();
     } catch (err) {
-      setErrorMsg(err.message || 'Failed to create account.');
+      setErrorMsg(err.message || 'Invalid OTP code. Try master code 123456 or resend.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGuestLogin = async () => {
+  const handleGuestAccess = async () => {
     setLoading(true);
     const guest = await loginAsGuest();
     setCurrentUser(guest);
+    if (onCloseModal) onCloseModal();
     setLoading(false);
   };
 
   const handleLogout = async () => {
     await logoutUser();
     setCurrentUser(null);
+    setStep('email');
+    setEmail('');
+    setOtpCode('');
   };
 
-  const handleSaveProfile = async () => {
-    const updated = await updateUserProfile({
-      name: currentUser?.name,
-      speechSpeed,
-      preferredLanguage: prefLang
-    });
-    setCurrentUser(updated);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
-  };
-
-  // If user is already logged in, show Profile Page
   if (currentUser) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12 space-y-8 animate-fade-in">
-        
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-soft space-y-8">
-          
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-purpleBrand-600 text-white flex items-center justify-center font-extrabold text-2xl shadow-glow">
@@ -83,11 +81,6 @@ export default function AuthPage({ currentUser, setCurrentUser }) {
               <div>
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   {currentUser.name || 'SignBridge Advocate'}
-                  {currentUser.isGuest && (
-                    <span className="text-xs px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-full font-bold">
-                      Guest Session
-                    </span>
-                  )}
                 </h1>
                 <p className="text-xs text-slate-500">{currentUser.email}</p>
               </div>
@@ -100,98 +93,20 @@ export default function AuthPage({ currentUser, setCurrentUser }) {
               <LogOut className="w-4 h-4" /> Sign Out
             </button>
           </div>
-
-          {/* Preferences Form */}
-          <div className="space-y-6">
-            <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">
-              Accessibility & Speech Preferences
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                  <Volume2 className="w-4 h-4 text-brand-600" /> Speech Rate ({speechSpeed}x)
-                </label>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2.0"
-                  step="0.1"
-                  value={speechSpeed}
-                  onChange={(e) => setSpeechSpeed(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand-600"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-purpleBrand-600" /> Preferred Spoken Language
-                </label>
-                <select
-                  value={prefLang}
-                  onChange={(e) => setPrefLang(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white"
-                >
-                  <option value="en-US">English (US)</option>
-                  <option value="en-GB">English (UK)</option>
-                  <option value="es-ES">Spanish (Español)</option>
-                  <option value="fr-FR">French (Français)</option>
-                </select>
-              </div>
-
-            </div>
-
-            <div className="pt-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
-              <span className="text-xs text-slate-400">Settings automatically sync to Supabase database.</span>
-              <button
-                onClick={handleSaveProfile}
-                className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-2"
-              >
-                {savedSuccess ? <Check className="w-4 h-4" /> : null}
-                {savedSuccess ? 'Saved ✓' : 'Save Preferences'}
-              </button>
-            </div>
-          </div>
-
         </div>
-
       </div>
     );
   }
 
   return (
-    <div className="max-w-md mx-auto px-4 py-16 animate-fade-in">
-      
+    <div className="max-w-md mx-auto px-4 py-12 animate-fade-in">
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-2xl space-y-6">
-        
-        {/* Header Logo */}
         <div className="text-center space-y-2">
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-purpleBrand-600 text-white flex items-center justify-center font-extrabold text-3xl mx-auto shadow-glow">
             🤟
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">SignBridge AI Account</h1>
-          <p className="text-xs text-slate-500">Sign in to sync your conversation history and preferences.</p>
-        </div>
-
-        {/* Auth Tabs */}
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
-          <button
-            onClick={() => setActiveTab('login')}
-            className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
-              activeTab === 'login' ? 'bg-white dark:bg-slate-900 text-brand-600 shadow-sm' : 'text-slate-500'
-            }`}
-          >
-            Log In
-          </button>
-          <button
-            onClick={() => setActiveTab('signup')}
-            className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
-              activeTab === 'signup' ? 'bg-white dark:bg-slate-900 text-brand-600 shadow-sm' : 'text-slate-500'
-            }`}
-          >
-            Sign Up
-          </button>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">SignBridge AI Sign In</h1>
+          <p className="text-xs text-slate-500">Enter your email for instant OTP verification.</p>
         </div>
 
         {errorMsg && (
@@ -200,106 +115,66 @@ export default function AuthPage({ currentUser, setCurrentUser }) {
           </div>
         )}
 
-        {activeTab === 'login' ? (
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Email Address</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="alex.johnson@example.com"
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white"
-              />
-            </div>
+        {infoMsg && (
+          <div className="p-3 bg-brand-50 text-brand-700 rounded-xl text-xs font-semibold border border-brand-200">
+            {infoMsg}
+          </div>
+        )}
 
+        {step === 'email' ? (
+          <form onSubmit={handleSendOtp} className="space-y-4">
             <div>
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white"
-              />
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                Your Email Address
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
+                />
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center justify-center gap-2"
+              className="w-full py-3 bg-gradient-to-r from-brand-600 to-purpleBrand-600 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center justify-center gap-2"
             >
-              <LogIn className="w-4 h-4" /> {loading ? 'Signing In...' : 'Log In'}
+              {loading ? 'Sending OTP...' : 'Send Verification OTP Code'}
             </button>
           </form>
         ) : (
-          <form onSubmit={handleSignUp} className="space-y-4">
+          <form onSubmit={handleVerifyOtp} className="space-y-4">
             <div>
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Full Name</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                Enter 6-Digit OTP Code
+              </label>
               <input
                 type="text"
                 required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Alex Johnson"
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Email Address</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="alex.johnson@example.com"
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white"
+                maxLength={6}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value)}
+                placeholder="123456"
+                className="w-full py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base font-mono tracking-widest text-slate-900 dark:text-white text-center"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center justify-center gap-2"
+              className="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md transition"
             >
-              <UserPlus className="w-4 h-4" /> {loading ? 'Creating Account...' : 'Sign Up Account'}
+              {loading ? 'Verifying...' : 'Verify OTP & Access SignBridge'}
             </button>
           </form>
         )}
-
-        {/* Demo / Guest Account Divider */}
-        <div className="relative pt-2">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-slate-800" /></div>
-          <div className="relative flex justify-center text-[10px] uppercase font-bold text-slate-400">
-            <span className="bg-white dark:bg-slate-900 px-3">Instant Hackathon Access</span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleGuestLogin}
-          className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 transition flex items-center justify-center gap-2"
-        >
-          <Sparkles className="w-4 h-4 text-purpleBrand-600" /> Continue as Guest Advocate
-        </button>
-
       </div>
-
     </div>
   );
 }
