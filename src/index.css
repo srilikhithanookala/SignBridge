@@ -8,38 +8,94 @@
   }
 }
 
-/* High Contrast Accessibility Mode */
+/* Enhanced High Contrast Accessibility Mode */
 .high-contrast {
-  --tw-bg-opacity: 1;
   background-color: #000000 !important;
   color: #ffffff !important;
 }
 
-.high-contrast .bg-white,
-.high-contrast .bg-slate-50,
-.high-contrast .bg-slate-100,
-.high-contrast .bg-brand-50 {
-  background-color: #121212 !important;
+.high-contrast *, 
+.high-contrast *::before, 
+.high-contrast *::after {
+  border-color: #ffffff !important;
+}
+
+.high-contrast body,
+.high-contrast main,
+.high-contrast nav,
+.high-contrast footer,
+.high-contrast header,
+.high-contrast section,
+.high-contrast div,
+.high-contrast card {
+  background-color: #000000 !important;
   color: #ffffff !important;
-  border-color: #444444 !important;
 }
 
-.high-contrast .text-slate-600,
+/* Force high visibility text colors */
+.high-contrast h1,
+.high-contrast h2,
+.high-contrast h3,
+.high-contrast h4,
+.high-contrast h5,
+.high-contrast h6,
+.high-contrast p,
+.high-contrast span,
+.high-contrast label,
+.high-contrast a,
+.high-contrast button,
+.high-contrast input,
+.high-contrast select,
+.high-contrast textarea,
+.high-contrast .text-slate-400,
 .high-contrast .text-slate-500,
+.high-contrast .text-slate-600,
 .high-contrast .text-slate-700,
-.high-contrast .text-slate-800 {
-  color: #e2e8f0 !important;
+.high-contrast .text-slate-800,
+.high-contrast .text-slate-900 {
+  color: #ffffff !important;
 }
 
+/* Bright yellow accent for active buttons and badges */
 .high-contrast .bg-brand-600,
-.high-contrast .bg-brand-500 {
+.high-contrast .bg-brand-500,
+.high-contrast .bg-brand-700,
+.high-contrast .bg-purpleBrand-600,
+.high-contrast .bg-purpleBrand-500 {
   background-color: #ffff00 !important;
   color: #000000 !important;
   font-weight: 800 !important;
 }
 
+.high-contrast .bg-brand-50,
+.high-contrast .bg-brand-100,
+.high-contrast .bg-slate-50,
+.high-contrast .bg-slate-100,
+.high-contrast .bg-slate-800,
+.high-contrast .bg-slate-900,
+.high-contrast .bg-white {
+  background-color: #121212 !important;
+  color: #ffffff !important;
+  border: 1px solid #ffffff !important;
+}
+
+.high-contrast input,
+.high-contrast select,
+.high-contrast textarea {
+  background-color: #000000 !important;
+  color: #ffff00 !important;
+  border: 2px solid #ffffff !important;
+  font-weight: 700 !important;
+}
+
 .high-contrast button {
   border: 2px solid #ffffff !important;
+}
+
+.high-contrast .text-brand-600,
+.high-contrast .text-brand-500,
+.high-contrast .text-purpleBrand-600 {
+  color: #ffff00 !important;
 }
 
 /* Large Text Mode */
@@ -55,7 +111,7 @@
   font-size: 2.25rem !important;
 }
 
-.large-text p, .large-text button, .large-text input, .large-text span {
+.large-text p, .large-text button, .large-text input, .large-text select, .large-text span {
   font-size: 1.15rem !important;
 }
 
