@@ -12,10 +12,38 @@ import { getCurrentUser } from './services/supabaseClient';
 import { Eye, X } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('landing');
+  const getTabFromHash = () => {
+    const hash = window.location.hash.replace('#', '').trim();
+    const validTabs = ['landing', 'translator', 'conversation', 'history', 'dashboard', 'learn', 'auth'];
+    return validTabs.includes(hash) ? hash : 'landing';
+  };
+
+  const [activeTab, setActiveTabState] = useState(getTabFromHash());
   const [currentUser, setCurrentUser] = useState(null);
   const [isAccessibilityOpen, setIsAccessibilityOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  const setActiveTab = (tabId) => {
+    setActiveTabState(tabId);
+    if (window.location.hash !== `#${tabId}`) {
+      window.history.pushState({ tabId }, '', `#${tabId}`);
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const currentTab = getTabFromHash();
+      setActiveTabState(currentTab);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handlePopState);
+    };
+  }, []);
 
   useEffect(() => {
     loadUser();
@@ -26,6 +54,8 @@ export default function App() {
     setCurrentUser(user);
     if (!user) {
       setShowAuthModal(true);
+    } else if (user?.highContrast) {
+      document.body.classList.add('high-contrast');
     }
   };
 
