@@ -9,7 +9,7 @@ import DashboardPage from './pages/DashboardPage';
 import LearnSignsPage from './pages/LearnSignsPage';
 import AuthPage from './pages/AuthPage';
 import { getCurrentUser } from './services/supabaseClient';
-import { Eye, X } from 'lucide-react';
+import { KeyRound, ShieldCheck } from 'lucide-react';
 
 export default function App() {
   const getTabFromHash = () => {
@@ -20,8 +20,8 @@ export default function App() {
 
   const [activeTab, setActiveTabState] = useState(getTabFromHash());
   const [currentUser, setCurrentUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
   const [isAccessibilityOpen, setIsAccessibilityOpen] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const setActiveTab = (tabId) => {
     setActiveTabState(tabId);
@@ -31,38 +31,55 @@ export default function App() {
   };
 
   useEffect(() => {
-    const handlePopState = () => {
-      const currentTab = getTabFromHash();
-      setActiveTabState(currentTab);
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    window.addEventListener('hashchange', handlePopState);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-      window.removeEventListener('hashchange', handlePopState);
-    };
-  }, []);
-
-  useEffect(() => {
     loadUser();
   }, []);
 
   const loadUser = async () => {
+    setLoadingUser(true);
     const user = await getCurrentUser();
     setCurrentUser(user);
-    if (!user) {
-      setShowAuthModal(true);
-    } else if (user?.highContrast) {
+    if (user?.highContrast) {
       document.body.classList.add('high-contrast');
     }
+    setLoadingUser(false);
   };
 
   const handleAuthComplete = (user) => {
     setCurrentUser(user);
-    setShowAuthModal(false);
+    if (user?.highContrast) {
+      document.body.classList.add('high-contrast');
+    }
   };
+
+  if (loadingUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white text-xs font-semibold">
+        <div className="flex items-center gap-3">
+          <KeyRound className="w-5 h-5 text-brand-500 animate-spin" />
+          <span>Verifying SignBridge AI Session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Strictly Gate Application Access - Only allow entry AFTER Email OTP Verification
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen flex flex-col justify-center bg-slate-900 text-slate-100 font-sans p-4 relative overflow-hidden">
+        <div className="max-w-md mx-auto w-full z-10 space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-950 border border-brand-800 text-brand-300 rounded-full text-xs font-bold mx-auto w-fit">
+            <ShieldCheck className="w-4 h-4 text-brand-400" />
+            PROTECTED ACCESS • EMAIL OTP REQUIRED
+          </div>
+
+          <AuthPage
+            currentUser={currentUser}
+            setCurrentUser={handleAuthComplete}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">
@@ -82,32 +99,6 @@ export default function App() {
         {activeTab === 'learn' && <LearnSignsPage />}
         {activeTab === 'auth' && <AuthPage currentUser={currentUser} setCurrentUser={handleAuthComplete} />}
       </main>
-
-      {showAuthModal && !currentUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
-          <div className="relative w-full max-w-lg">
-            <button
-              onClick={() => setShowAuthModal(false)}
-              className="absolute top-4 right-4 z-10 p-2 text-slate-400 hover:text-white bg-slate-800 rounded-full"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <AuthPage
-              currentUser={currentUser}
-              setCurrentUser={handleAuthComplete}
-              isModal={true}
-              onCloseModal={() => setShowAuthModal(false)}
-            />
-          </div>
-        </div>
-      )}
-
-      <AccessibilityPanel
-        isOpen={isAccessibilityOpen}
-        onClose={() => setIsAccessibilityOpen(false)}
-        currentUser={currentUser}
-        onUserUpdate={setCurrentUser}
-      />
     </div>
   );
 }
