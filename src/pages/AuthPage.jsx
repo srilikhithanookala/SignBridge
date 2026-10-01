@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LogOut, KeyRound, Mail, ArrowRight, CheckCircle2, ShieldCheck, RefreshCw, Send, Bell, Zap, AlertCircle } from 'lucide-react';
+import { LogOut, KeyRound, Mail, ArrowRight, CheckCircle2, ShieldCheck, RefreshCw, Send, Bell, Zap, AlertCircle, Sparkles } from 'lucide-react';
 import { sendOtpToEmail, verifyOtpCode, loginAsGuest, logoutUser } from '../services/supabaseClient';
 
 export default function AuthPage({ currentUser, setCurrentUser }) {
