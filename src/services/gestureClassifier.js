@@ -1,10 +1,3 @@
-/**
- * SignBridge AI - Gesture Classifier & Landmark Analyzer
- * Supports dynamic real-time classification for 22 core signs from MediaPipe 21-point hand landmarks,
- * plus demo simulation triggers and catalog metadata.
- */
-
-// 22 Predefined Core Vocabulary Signs
 export const SUPPORTED_SIGNS = [
   { id: 'HELLO', name: 'Hello', category: 'Greeting', emoji: '👋', description: 'Open palm facing forward with all fingers extended.', instructions: 'Raise your dominant hand, extend all 5 fingers straight up with palm facing forward.' },
   { id: 'THANK YOU', name: 'Thank You', category: 'Polite', emoji: '🙏', description: 'Flat palm with fingers together near chin/chest.', instructions: 'Place flat hand fingers together near your chin/chest and move outward smoothly.' },
@@ -29,52 +22,32 @@ export const SUPPORTED_SIGNS = [
   { id: 'BAD', name: 'Bad', category: 'Descriptor', emoji: '❌', description: 'Thumbs-down gesture or hand turning away from chin.', instructions: 'Show a clear thumbs-down gesture with all fingers folded.' }
 ];
 
-/**
- * Classify MediaPipe 21 Hand Landmarks
- * @param {Array} landmarks - 21 landmark objects {x, y, z}
- * @returns {Object} { sign, confidence, handDetected }
- */
 export function classifyHandLandmarks(landmarks) {
   if (!landmarks || landmarks.length < 21) {
-    return { sign: null, confidence: 0, handDetected: false };
+    return { sign: null, name: null, emoji: null, confidence: 0, handDetected: false };
   }
 
-  // Landmark references:
-  // 0: Wrist
-  // 1-4: Thumb (4 is TIP)
-  // 5-8: Index (8 is TIP, 6 is PIP, 5 is MCP)
-  // 9-12: Middle (12 is TIP, 10 is PIP, 9 is MCP)
-  // 13-16: Ring (16 is TIP, 14 is PIP, 13 is MCP)
-  // 17-20: Pinky (20 is TIP, 18 is PIP, 17 is MCP)
-
   const wrist = landmarks[0];
-
-  // Helper distance function
   const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
 
-  // Check finger extension states (Y axis goes downwards in image space 0..1)
   const isIndexExtended = landmarks[8].y < landmarks[6].y && dist(landmarks[8], wrist) > dist(landmarks[6], wrist);
   const isMiddleExtended = landmarks[12].y < landmarks[10].y && dist(landmarks[12], wrist) > dist(landmarks[10], wrist);
   const isRingExtended = landmarks[16].y < landmarks[14].y && dist(landmarks[16], wrist) > dist(landmarks[14], wrist);
   const isPinkyExtended = landmarks[20].y < landmarks[18].y && dist(landmarks[20], wrist) > dist(landmarks[18], wrist);
 
-  // Thumb extended if thumb tip is far from wrist and index MCP
   const isThumbExtended = dist(landmarks[4], wrist) > 0.25 && dist(landmarks[4], landmarks[5]) > 0.12;
   const isThumbUp = landmarks[4].y < landmarks[3].y && landmarks[4].y < landmarks[8].y && !isIndexExtended && !isMiddleExtended;
   const isThumbDown = landmarks[4].y > landmarks[2].y && landmarks[4].y > landmarks[8].y && !isIndexExtended && !isMiddleExtended;
 
   const countExtended = (isIndexExtended ? 1 : 0) + (isMiddleExtended ? 1 : 0) + (isRingExtended ? 1 : 0) + (isPinkyExtended ? 1 : 0);
-
-  // Distance between thumb tip and index tip
   const thumbIndexDist = dist(landmarks[4], landmarks[8]);
   const indexMiddleDist = dist(landmarks[8], landmarks[12]);
 
-  let matchedSign = null;
+  let matchedSign = 'HELLO';
   let confidence = 0.85;
 
-  // Rule matching logic
   if (isThumbUp && countExtended === 0) {
-    matchedSign = 'GOOD'; // or YES
+    matchedSign = 'GOOD';
     confidence = 0.94;
   } else if (isThumbDown && countExtended === 0) {
     matchedSign = 'BAD';
@@ -86,11 +59,11 @@ export function classifyHandLandmarks(landmarks) {
     matchedSign = 'STOP';
     confidence = 0.93;
   } else if (isIndexExtended && isMiddleExtended && isRingExtended && !isPinkyExtended) {
-    matchedSign = 'WATER'; // 'W' handshape
+    matchedSign = 'WATER';
     confidence = 0.91;
   } else if (isIndexExtended && isMiddleExtended && !isRingExtended && !isPinkyExtended) {
     if (indexMiddleDist < 0.05) {
-      matchedSign = 'HOSPITAL'; // H sign
+      matchedSign = 'HOSPITAL';
       confidence = 0.89;
     } else {
       matchedSign = 'NO';
@@ -98,17 +71,17 @@ export function classifyHandLandmarks(landmarks) {
     }
   } else if (isIndexExtended && !isMiddleExtended && !isRingExtended && !isPinkyExtended) {
     if (landmarks[8].y > landmarks[7].y) {
-      matchedSign = 'NEED'; // Hooked index
+      matchedSign = 'NEED';
       confidence = 0.86;
     } else {
-      matchedSign = 'YOU'; // Pointing forward
+      matchedSign = 'YOU';
       confidence = 0.95;
     }
   } else if (!isIndexExtended && !isMiddleExtended && !isRingExtended && isPinkyExtended) {
-    matchedSign = 'I'; // ASL 'I'
+    matchedSign = 'I';
     confidence = 0.94;
   } else if (countExtended === 0 && thumbIndexDist < 0.06) {
-    matchedSign = 'FOOD'; // Pinching tips together
+    matchedSign = 'FOOD';
     confidence = 0.89;
   } else if (countExtended === 0 && isThumbExtended) {
     matchedSign = 'YES';
@@ -116,10 +89,6 @@ export function classifyHandLandmarks(landmarks) {
   } else if (countExtended === 4 && dist(landmarks[8], landmarks[12]) < 0.04) {
     matchedSign = 'THANK YOU';
     confidence = 0.92;
-  } else {
-    // Default fallback to HELLO or HELP if active gesture detected
-    matchedSign = 'HELP';
-    confidence = 0.82;
   }
 
   const signData = SUPPORTED_SIGNS.find(s => s.id === matchedSign) || SUPPORTED_SIGNS[0];
@@ -128,31 +97,26 @@ export function classifyHandLandmarks(landmarks) {
     sign: signData.id,
     name: signData.name,
     emoji: signData.emoji,
+    description: signData.description,
     confidence: Math.round(confidence * 100),
     handDetected: true,
     landmarks
   };
 }
 
-/**
- * Draw MediaPipe Hand Landmarks on Canvas Context
- */
 export function drawHandSkeleton(ctx, landmarks, width, height) {
   if (!ctx || !landmarks || landmarks.length < 21) return;
-
   ctx.clearRect(0, 0, width, height);
 
-  // Skeleton Connections
   const connections = [
-    [0, 1], [1, 2], [2, 3], [3, 4],       // Thumb
-    [0, 5], [5, 6], [6, 7], [7, 8],       // Index
-    [5, 9], [9, 10], [10, 11], [11, 12],   // Middle
-    [9, 13], [13, 14], [14, 15], [15, 16], // Ring
-    [13, 17], [17, 18], [18, 19], [19, 20], // Pinky
-    [0, 17]                               // Palm base
+    [0, 1], [1, 2], [2, 3], [3, 4],
+    [0, 5], [5, 6], [6, 7], [7, 8],
+    [5, 9], [9, 10], [10, 11], [11, 12],
+    [9, 13], [13, 14], [14, 15], [15, 16],
+    [13, 17], [17, 18], [18, 19], [19, 20],
+    [0, 17]
   ];
 
-  // Draw Line Connections
   ctx.strokeStyle = '#0c8de9';
   ctx.lineWidth = 4;
   ctx.lineCap = 'round';
@@ -167,7 +131,6 @@ export function drawHandSkeleton(ctx, landmarks, width, height) {
     ctx.stroke();
   });
 
-  // Draw Landmark Points
   landmarks.forEach((p, index) => {
     ctx.beginPath();
     ctx.arc(p.x * width, p.y * height, index === 4 || index === 8 || index === 12 || index === 16 || index === 20 ? 7 : 5, 0, 2 * Math.PI);

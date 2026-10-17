@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, CameraOff, RefreshCw, Pause, Play, Volume2, Copy, RotateCcw, Trash2, CheckCircle2, AlertCircle, Sparkles, ShieldCheck } from 'lucide-react';
-import { classifyHandLandmarks, drawHandSkeleton, SUPPORTED_SIGNS } from '../services/gestureClassifier';
+import { SUPPORTED_SIGNS, drawHandSkeleton } from '../services/gestureClassifier';
 import { generateSentence } from '../services/sentenceEngine';
 import { speakText } from '../services/speechService';
 import { recordLiveTranslation } from '../services/supabaseClient';
@@ -9,13 +9,12 @@ import FeedbackModal from '../components/FeedbackModal';
 import { Hands } from '@mediapipe/hands';
 import { Camera as MediaPipeCamera } from '@mediapipe/camera_utils';
 
-
 export default function LiveTranslatorPage({ currentUser }) {
   // Camera & Video Refs
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const animFrameId = useRef(null);
-  const mediaStreamRef = useRef(null);
+  const cameraInstanceRef = useRef(null);
+  const handsInstanceRef = useRef(null);
 
   // States
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -35,140 +34,146 @@ export default function LiveTranslatorPage({ currentUser }) {
   // Speech Options
   const speechSpeed = currentUser?.speechSpeed || 1.0;
 
-  // Initialize MediaPipe or Landmark Detector Loop
-  useEffect(() => {
-    if (isCameraActive && !isPaused) {
-      startCameraStream();
-    } else {
-      stopCameraStream();
-    }
-
-    return () => {
-      stopCameraStream();
-    };
-  }, [isCameraActive, isPaused, facingMode]);
-
   // Recalculate sentence when buffer changes
   useEffect(() => {
     const sentence = generateSentence(signBuffer);
     setGeneratedSentence(sentence);
   }, [signBuffer]);
 
-  // Start Webcam Video
-  const startCameraStream = async () => {
+  // Initialize MediaPipe Hands & Camera stream
+  useEffect(() => {
+    if (isCameraActive && !isPaused) {
+      startMediaPipeCamera();
+    } else {
+      stopMediaPipeCamera();
+    }
+
+    return () => {
+      stopMediaPipeCamera();
+    };
+  }, [isCameraActive, isPaused, facingMode]);
+
+  // Send Hand Landmarks or Quick Trigger ID to FastAPI Backend
+  const sendLandmarksToBackend = async (landmarks = [], triggerSignId = null) => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          landmarks: landmarks || [],
+          sign_id: triggerSignId 
+        }),
+      });
+      
+      const result = await response.json();
+      if (result && result.status === 'success' && result.translation) {
+        const signId = result.translation;
+        const signInfo = SUPPORTED_SIGNS.find(s => s.id === signId) || { id: signId, name: signId, emoji: '🖐️' };
+
+        setCurrentSign(signInfo);
+        setConfidence(Math.round((result.confidence || 0.9) * 100));
+        setHandDetected(true);
+        setLastFeedbackSign(signInfo.id);
+
+        setSignBuffer(prev => {
+          if (prev.length > 0 && prev[prev.length - 1] === signId) return prev;
+          const updated = [...prev, signId];
+          const sentence = generateSentence(updated);
+          recordLiveTranslation(signId, sentence);
+          return updated;
+        });
+      }
+    } catch (error) {
+      console.error('Error connecting to FastAPI backend:', error);
+    }
+  };
+
+  // Start MediaPipe Camera & Hands Pipeline
+  const startMediaPipeCamera = async () => {
     setCameraError(null);
     try {
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      }
+      if (!videoRef.current || !canvasRef.current) return;
 
-      const constraints = {
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: facingMode
+      const hands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+      });
+
+      hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.6,
+        minTrackingConfidence: 0.6
+      });
+
+      let lastSentTime = 0;
+      hands.onResults((results) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        ctx.save();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+
+        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+          setHandDetected(true);
+          const landmarks = results.multiHandLandmarks[0];
+          
+          // Draw skeleton on canvas
+          drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height);
+
+          // Throttle requests to once every 1.5s
+          const now = Date.now();
+          if (now - lastSentTime > 1500) {
+            lastSentTime = now;
+            sendLandmarksToBackend(landmarks);
+          }
+        } else {
+          setHandDetected(false);
+        }
+        ctx.restore();
+      });
+
+      handsInstanceRef.current = hands;
+
+      const camera = new MediaPipeCamera(videoRef.current, {
+        onFrame: async () => {
+          if (videoRef.current && handsInstanceRef.current && !isPaused) {
+            await handsInstanceRef.current.send({ image: videoRef.current });
+          }
         },
-        audio: false
-      };
+        width: 640,
+        height: 480
+      });
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      mediaStreamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play();
-          startLandmarkProcessing();
-        };
-      }
+      await camera.start();
+      cameraInstanceRef.current = camera;
+      setIsCameraActive(true);
     } catch (err) {
-      console.error('Camera access error:', err);
-      setCameraError('Camera access is required for real-time sign recognition. Please allow camera permissions in your browser and try again.');
+      console.error('MediaPipe camera error:', err);
+      setCameraError('Camera access failed or MediaPipe failed to load. Please check permissions.');
       setIsCameraActive(false);
     }
   };
 
-  // Stop Webcam Stream
-  const stopCameraStream = () => {
-    if (animFrameId.current) {
-      cancelAnimationFrame(animFrameId.current);
+  // Stop MediaPipe Camera Stream
+  const stopMediaPipeCamera = () => {
+    if (cameraInstanceRef.current) {
+      cameraInstanceRef.current.stop();
+      cameraInstanceRef.current = null;
     }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+    if (handsInstanceRef.current) {
+      handsInstanceRef.current.close();
+      handsInstanceRef.current = null;
     }
-    if (videoRef.current) {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject;
+      stream.getTracks().forEach(track => track.stop());
       videoRef.current.srcObject = null;
     }
     setHandDetected(false);
-  };
-
-  // Process Video Frames & Classify Gestures in Real Time
-  const startLandmarkProcessing = () => {
-    let lastRecognizedTime = 0;
-    let gestureCycle = 0;
-    const coreSequence = ['HELLO', 'I', 'NEED', 'WATER', 'HELP', 'FOOD', 'THANK YOU'];
-
-    const processFrame = () => {
-      if (!videoRef.current || !canvasRef.current || isPaused) return;
-
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-
-      if (video.readyState === 4) {
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 480;
-
-        const now = Date.now();
-        const mockTime = now / 300;
-        const wristX = 0.5 + Math.sin(mockTime) * 0.04;
-        const wristY = 0.55 + Math.cos(mockTime) * 0.03;
-
-        // Generate 21 landmarks
-        const simulatedLandmarks = Array.from({ length: 21 }, (_, idx) => {
-          if (idx === 0) return { x: wristX, y: wristY, z: 0 };
-          const fingerGroup = Math.floor((idx - 1) / 4);
-          const posInFinger = (idx - 1) % 4;
-          const angle = (fingerGroup - 2) * 0.25;
-          const length = (posInFinger + 1) * 0.07;
-          return {
-            x: wristX + Math.sin(angle) * length,
-            y: wristY - Math.cos(angle) * length,
-            z: 0
-          };
-        });
-
-        // Draw Skeleton
-        drawHandSkeleton(ctx, simulatedLandmarks, canvas.width, canvas.height);
-
-        // Classify landmarks every 2.5 seconds
-        if (now - lastRecognizedTime > 2500) {
-          lastRecognizedTime = now;
-          const activeSignId = coreSequence[gestureCycle % coreSequence.length];
-          gestureCycle++;
-
-          const res = classifyHandLandmarks(simulatedLandmarks);
-          const signInfo = SUPPORTED_SIGNS.find(s => s.id === activeSignId) || SUPPORTED_SIGNS[0];
-
-          setCurrentSign(signInfo);
-          setConfidence(Math.floor(92 + Math.random() * 7));
-          setHandDetected(true);
-          setLastFeedbackSign(signInfo.id);
-
-          setSignBuffer(prev => {
-            if (prev.length > 0 && prev[prev.length - 1] === signInfo.id) return prev;
-            const updated = [...prev, signInfo.id];
-            const sentence = generateSentence(updated);
-            recordLiveTranslation(signInfo.id, sentence);
-            return updated;
-          });
-        }
-      }
-
-      animFrameId.current = requestAnimationFrame(processFrame);
-    };
-
-    processFrame();
   };
 
   // Toggle Camera
@@ -186,21 +191,9 @@ export default function LiveTranslatorPage({ currentUser }) {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
-  // Trigger Sign (from simulation bar or live classifier)
+  // Quick Trigger Action
   const triggerSignRecognition = (signId) => {
-    const signInfo = SUPPORTED_SIGNS.find(s => s.id === signId) || { id: signId, name: signId, emoji: '🖐️' };
-    setCurrentSign(signInfo);
-    setConfidence(Math.floor(90 + Math.random() * 8));
-    setHandDetected(true);
-    setLastFeedbackSign(signInfo.id);
-
-    setSignBuffer(prev => {
-      if (prev.length > 0 && prev[prev.length - 1] === signId) return prev;
-      const updated = [...prev, signId];
-      const sentence = generateSentence(updated);
-      recordLiveTranslation(signId, sentence);
-      return updated;
-    });
+    sendLandmarksToBackend([], signId);
   };
 
   // Speech Output
@@ -260,13 +253,15 @@ export default function LiveTranslatorPage({ currentUser }) {
               ref={videoRef}
               playsInline
               muted
-              className={`w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''} ${isCameraActive && !cameraError ? 'block' : 'hidden'}`}
+              className="hidden"
             />
 
             {/* MediaPipe Skeleton Canvas Overlay */}
             <canvas
               ref={canvasRef}
-              className={`absolute inset-0 w-full h-full pointer-events-none ${facingMode === 'user' ? '-scale-x-100' : ''} ${isCameraActive && !cameraError ? 'block' : 'hidden'}`}
+              width={640}
+              height={480}
+              className={`w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''} ${isCameraActive && !cameraError ? 'block' : 'hidden'}`}
             />
 
             {/* Offline / Stopped Camera Placeholder */}
@@ -352,32 +347,29 @@ export default function LiveTranslatorPage({ currentUser }) {
             </div>
           </div>
 
-          {/* Gesture Simulation Triggers Bar */}
+          {/* Quick Gesture Triggers Bar (All Core Signs) */}
           <div className="bg-gradient-to-r from-slate-900 to-brand-950 p-5 rounded-3xl text-white space-y-3 shadow-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-purpleBrand-400" />
                 <span className="text-xs font-extrabold uppercase tracking-wider text-brand-300">
-                  Quick Gesture Triggers
+                  Quick Gesture Triggers ({SUPPORTED_SIGNS.length} Core Signs)
                 </span>
               </div>
               <span className="text-[10px] text-slate-400">Tap sign to translate immediately</span>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {['HELLO', 'I', 'WANT', 'NEED', 'WATER', 'FOOD', 'HELP', 'HOSPITAL', 'THANK YOU', 'GOOD'].map((signId) => {
-                const sData = SUPPORTED_SIGNS.find(s => s.id === signId);
-                return (
-                  <button
-                    key={signId}
-                    onClick={() => triggerSignRecognition(signId)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/80 hover:bg-brand-600 text-white rounded-xl text-xs font-semibold border border-slate-700 hover:border-brand-500 transition shadow-sm active:scale-95"
-                  >
-                    <span>{sData?.emoji || '🖐️'}</span>
-                    <span>{sData?.name || signId}</span>
-                  </button>
-                );
-              })}
+            <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto pr-1">
+              {SUPPORTED_SIGNS.map((sign) => (
+                <button
+                  key={sign.id}
+                  onClick={() => triggerSignRecognition(sign.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/80 hover:bg-brand-600 text-white rounded-xl text-xs font-semibold border border-slate-700 hover:border-brand-500 transition shadow-sm active:scale-95"
+                >
+                  <span>{sign.emoji}</span>
+                  <span>{sign.name}</span>
+                </button>
+              ))}
             </div>
           </div>
 
