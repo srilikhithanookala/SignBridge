@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Camera, MessageSquare, History, LayoutDashboard, BookOpen, User, Eye, Menu, X, Sparkles } from 'lucide-react';
+import { Camera, MessageSquare, History, LayoutDashboard, BookOpen, User, Menu, X, Sparkles } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 
-export default function Navbar({ activeTab, setActiveTab, currentUser, onOpenAccessibility }) {
+export default function Navbar({ activeTab, setActiveTab, currentUser }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
@@ -66,16 +66,6 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onOpenAcc
             {/* Theme Toggle Button */}
             <ThemeToggle />
 
-            {/* Accessibility Panel Quick Toggle */}
-            <button
-              onClick={onOpenAccessibility}
-              className="p-2 rounded-xl text-slate-600 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-              title="Open Accessibility Settings"
-              aria-label="Accessibility options"
-            >
-              <Eye className="w-5 h-5 text-brand-600" />
-            </button>
-
             {/* Profile / Auth Button */}
             <button
               onClick={() => handleNavClick('auth')}
@@ -95,14 +85,6 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onOpenAcc
           {/* Mobile Hamburger Button */}
           <div className="flex md:hidden items-center gap-2">
             <ThemeToggle />
-
-            <button
-              onClick={onOpenAccessibility}
-              className="p-2 text-slate-600"
-              aria-label="Accessibility"
-            >
-              <Eye className="w-5 h-5 text-brand-600" />
-            </button>
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
