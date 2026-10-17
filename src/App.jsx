@@ -9,7 +9,7 @@ import DashboardPage from './pages/DashboardPage';
 import LearnSignsPage from './pages/LearnSignsPage';
 import AuthPage from './pages/AuthPage';
 import { getCurrentUser } from './services/supabaseClient';
-import { KeyRound, ShieldCheck } from 'lucide-react';
+import { Eye, X, Server } from 'lucide-react';
 
 export default function App() {
   const getTabFromHash = () => {
@@ -20,8 +20,11 @@ export default function App() {
 
   const [activeTab, setActiveTabState] = useState(getTabFromHash());
   const [currentUser, setCurrentUser] = useState(null);
-  const [loadingUser, setLoadingUser] = useState(true);
   const [isAccessibilityOpen, setIsAccessibilityOpen] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // State to store FastAPI backend connection status
+  const [backendStatus, setBackendStatus] = useState({ connected: false, message: 'Connecting...' });
 
   const setActiveTab = (tabId) => {
     setActiveTabState(tabId);
@@ -31,55 +34,51 @@ export default function App() {
   };
 
   useEffect(() => {
-    loadUser();
+    const handlePopState = () => {
+      const currentTab = getTabFromHash();
+      setActiveTabState(currentTab);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handlePopState);
+    };
   }, []);
 
+  useEffect(() => {
+    loadUser();
+    checkBackendConnection();
+  }, []);
+
+  // Fetch root endpoint from your running FastAPI server
+  const checkBackendConnection = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/');
+      const data = await response.json();
+      setBackendStatus({ connected: true, message: data.message });
+    } catch (error) {
+      console.error('FastAPI Backend connection failed:', error);
+      setBackendStatus({ connected: false, message: 'Backend Offline' });
+    }
+  };
+
   const loadUser = async () => {
-    setLoadingUser(true);
     const user = await getCurrentUser();
     setCurrentUser(user);
-    if (user?.highContrast) {
+    if (!user) {
+      setShowAuthModal(true);
+    } else if (user?.highContrast) {
       document.body.classList.add('high-contrast');
     }
-    setLoadingUser(false);
   };
 
   const handleAuthComplete = (user) => {
     setCurrentUser(user);
-    if (user?.highContrast) {
-      document.body.classList.add('high-contrast');
-    }
+    setShowAuthModal(false);
   };
-
-  if (loadingUser) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white text-xs font-semibold">
-        <div className="flex items-center gap-3">
-          <KeyRound className="w-5 h-5 text-brand-500 animate-spin" />
-          <span>Verifying SignBridge AI Session...</span>
-        </div>
-      </div>
-    );
-  }
-
-  // Strictly Gate Application Access - Only allow entry AFTER Email OTP Verification
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen flex flex-col justify-center bg-slate-900 text-slate-100 font-sans p-4 relative overflow-hidden">
-        <div className="max-w-md mx-auto w-full z-10 space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-950 border border-brand-800 text-brand-300 rounded-full text-xs font-bold mx-auto w-fit">
-            <ShieldCheck className="w-4 h-4 text-brand-400" />
-            PROTECTED ACCESS • EMAIL OTP REQUIRED
-          </div>
-
-          <AuthPage
-            currentUser={currentUser}
-            setCurrentUser={handleAuthComplete}
-          />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">
@@ -90,6 +89,16 @@ export default function App() {
         onOpenAccessibility={() => setIsAccessibilityOpen(true)}
       />
 
+      {/* Status banner to confirm FastAPI connection */}
+      <div className={`px-4 py-1.5 text-xs font-medium text-center flex items-center justify-center gap-2 ${
+        backendStatus.connected 
+          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-b border-emerald-500/20' 
+          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-b border-amber-500/20'
+      }`}>
+        <Server className="w-3.5 h-3.5" />
+        <span>FastAPI Status: <strong>{backendStatus.message}</strong></span>
+      </div>
+
       <main className="flex-1">
         {activeTab === 'landing' && <LandingPage onNavigate={setActiveTab} />}
         {activeTab === 'translator' && <LiveTranslatorPage currentUser={currentUser} />}
@@ -99,6 +108,32 @@ export default function App() {
         {activeTab === 'learn' && <LearnSignsPage />}
         {activeTab === 'auth' && <AuthPage currentUser={currentUser} setCurrentUser={handleAuthComplete} />}
       </main>
+
+      {showAuthModal && !currentUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
+          <div className="relative w-full max-w-lg">
+            <button
+              onClick={() => setShowAuthModal(false)}
+              className="absolute top-4 right-4 z-10 p-2 text-slate-400 hover:text-white bg-slate-800 rounded-full"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <AuthPage
+              currentUser={currentUser}
+              setCurrentUser={handleAuthComplete}
+              isModal={true}
+              onCloseModal={() => setShowAuthModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      <AccessibilityPanel
+        isOpen={isAccessibilityOpen}
+        onClose={() => setIsAccessibilityOpen(false)}
+        currentUser={currentUser}
+        onUserUpdate={setCurrentUser}
+      />
     </div>
   );
 }

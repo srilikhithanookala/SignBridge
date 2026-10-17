@@ -6,6 +6,10 @@ import { speakText } from '../services/speechService';
 import { recordLiveTranslation } from '../services/supabaseClient';
 import FeedbackModal from '../components/FeedbackModal';
 
+import { Hands } from '@mediapipe/hands';
+import { Camera as MediaPipeCamera } from '@mediapipe/camera_utils';
+
+
 export default function LiveTranslatorPage({ currentUser }) {
   // Camera & Video Refs
   const videoRef = useRef(null);
