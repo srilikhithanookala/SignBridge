@@ -1,30 +1,31 @@
 /* =========================================================
-   SignBridge AI — Official Color Theme (Teal & Deep Navy)
+   SignBridge AI — Official Glass Teal & Deep Navy Palette
    ========================================================= */
 
 :root,
 [data-theme="light"] {
   color-scheme: light;
 
-  --color-brand: #287D8E;
-  --color-brand-hover: #216878;
+  --color-brand: #00A8A7;
+  --color-brand-hover: #008786;
   --color-brand-text: #FFFFFF;
+  --color-highlight: #00A8A7;
 
   --color-bg: #F7FAFC;
   --color-surface: #FFFFFF;
   --color-surface-alt: #F0F7F8;
   --color-selected: #D9EEEE;
 
-  --color-heading: #142D4E;
+  --color-heading: #071522;
   --color-text: #344054;
   --color-muted: #475467;
   --color-border: #D0DCE5;
-  --color-focus: #176477;
+  --color-focus: #00C9C8;
 
   --color-success: #18794E;
   --color-warning: #925B0C;
   --color-error: #B42318;
-  --color-info: #176477;
+  --color-info: #00A8A7;
   --color-amber: #F4B860;
 
   --shadow-card: 0 4px 18px rgb(20 45 78 / 7%);
@@ -35,32 +36,40 @@
 body.dark {
   color-scheme: dark;
 
-  /* Confident Light Teal for Actions in Navy Dark Mode */
-  --color-brand: #64D2D2;
-  --color-brand-hover: #8BE3E3;
-  --color-brand-text: #101B2A;
+  /* Glass Teal: Buttons and active states (#00C9C8) */
+  --color-brand: #00C9C8;
+  --color-brand-hover: #00B2B1;
+  --color-brand-text: #071522;
 
-  /* Deep Navy Backgrounds & Surfaces */
-  --color-bg: #101B2A;
-  --color-surface: #182638;
-  --color-surface-alt: #22374A;
-  --color-selected: #23444B;
+  /* Soft Cyan: Icons and highlights (#64D2D2) */
+  --color-highlight: #64D2D2;
+  --color-icon: #64D2D2;
 
-  /* Light Blue / Crisp Slate Typography */
+  /* Deep Navy: Page background (#071522) */
+  --color-bg: #071522;
+
+  /* Dark Blur: Main glass background (#0B1F2A) */
+  --color-surface: #0B1F2A;
+  --color-surface-alt: #102A38;
+  --color-selected: #163647;
+
+  /* Primary Text: Headings and main text (#F1F5F9) */
   --color-heading: #F1F5F9;
-  --color-text: #CBD5E1;
+  --color-text: #F1F5F9;
   --color-muted: #94A3B8;
-  --color-border: #304155;
-  --color-focus: #8BE3E3;
+
+  /* Glass Border: Panel outlines (#28566B) */
+  --color-border: #28566B;
+  --color-focus: #00C9C8;
 
   /* State Colors */
   --color-success: #6EE7A0;
   --color-warning: #F8CB70;
   --color-error: #FF8B8B;
-  --color-info: #8BE3E3;
+  --color-info: #64D2D2;
   --color-amber: #F8CB70;
 
-  --shadow-card: 0 4px 18px rgb(0 0 0 / 25%);
+  --shadow-card: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
 @tailwind base;
@@ -76,7 +85,7 @@ body.dark {
   }
 }
 
-/* Explicit Global Styling Rules */
+/* Base Body Styles */
 body {
   background-color: var(--color-bg) !important;
   color: var(--color-text) !important;
@@ -159,7 +168,7 @@ input::placeholder, textarea::placeholder {
 .bg-amber-500,
 .badge-warning {
   background-color: var(--color-warning) !important;
-  color: #101B2A !important;
+  color: #071522 !important;
   font-weight: 700 !important;
 }
 
@@ -170,7 +179,7 @@ input::placeholder, textarea::placeholder {
   color: #FFFFFF !important;
 }
 
-/* Typography Consistency */
+/* Typography Overrides */
 .text-slate-900,
 .text-slate-800 {
   color: var(--color-heading) !important;
@@ -183,9 +192,10 @@ input::placeholder, textarea::placeholder {
   color: var(--color-muted) !important;
 }
 
+/* Icons and Highlights */
 .text-brand-600,
 .text-brand-700,
 .text-blue-600,
 .text-blue-700 {
-  color: var(--color-brand) !important;
+  color: var(--color-highlight, var(--color-brand)) !important;
 }
