@@ -8,12 +8,6 @@ export default function LandingPage({ onNavigate }) {
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-12 pb-16 lg:pt-20 lg:pb-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-8">
-          
-          {/* Top Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 dark:bg-slate-800 dark:border-slate-700 text-blue-700 dark:text-blue-300 rounded-full text-xs font-extrabold tracking-wide shadow-sm">
-            <Sparkles className="w-4 h-4 text-blue-600 animate-spin-slow" />
-            AI-POWERED ACCESSIBLE COMMUNICATION PLATFORM
-          </div>
 
           {/* Title & Tagline */}
           <div className="space-y-4 max-w-4xl mx-auto">
