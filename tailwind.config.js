@@ -45,7 +45,16 @@ export default {
           900: '#142D4E',
           950: '#101B2A',
         }
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        dyslexic: ['OpenDyslexic', 'Comic Sans MS', 'sans-serif'],
+      },
+      boxShadow: {
+        'soft': '0 4px 20px -2px rgba(16, 27, 42, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04)',
+        'glow': '0 0 25px -5px rgba(100, 210, 210, 0.35)',
       }
-    }
-  }
+    },
+  },
+  plugins: [],
 }
