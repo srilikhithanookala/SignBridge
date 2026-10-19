@@ -3,7 +3,7 @@ import { Camera, CameraOff, RefreshCw, Pause, Play, Volume2, Copy, RotateCcw, Tr
 import { SUPPORTED_SIGNS, drawHandSkeleton } from '../services/gestureClassifier';
 import { generateSentence } from '../services/sentenceEngine';
 import { speakText } from '../services/speechService';
-import { recordLiveTranslation } from '../services/supabaseClient';
+import { recordLiveTranslation, getCurrentUser } from '../services/supabaseClient';
 import FeedbackModal from '../components/FeedbackModal';
 
 import { Hands } from '@mediapipe/hands';
@@ -13,6 +13,25 @@ import { Camera as MediaPipeCamera } from '@mediapipe/camera_utils';
 const BACKEND_URL = "https://signbridge-backend-9ir2.onrender.com";
 
 export default function LiveTranslatorPage({ currentUser }) {
+  // Local user state with fallback to prop and automatic fetch if missing
+  const [activeUser, setActiveUser] = useState(currentUser);
+
+  useEffect(() => {
+    async function loadUserData() {
+      if (!currentUser) {
+        try {
+          const user = await getCurrentUser();
+          if (user) {
+            setActiveUser(user);
+          }
+        } catch (err) {
+          console.error('Failed to fetch active user session:', err);
+        }
+      }
+    }
+    loadUserData();
+  }, [currentUser]);
+
   // Camera & Video Refs
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -35,7 +54,8 @@ export default function LiveTranslatorPage({ currentUser }) {
   const [copied, setCopied] = useState(false);
 
   // Speech Options
-  const speechSpeed = currentUser?.speechSpeed || 1.0;
+  const effectiveUser = currentUser || activeUser;
+  const speechSpeed = effectiveUser?.speechSpeed || 1.0;
 
   // Recalculate sentence when buffer changes
   useEffect(() => {
