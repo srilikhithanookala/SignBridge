@@ -55,15 +55,15 @@ export default function App() {
 
   // Fetch root endpoint from your running FastAPI server
   const checkBackendConnection = async () => {
-    try {
-      const response = await fetch('http://127.0.0.1:8000/');
-      const data = await response.json();
-      setBackendStatus({ connected: true, message: data.message });
-    } catch (error) {
-      console.error('FastAPI Backend connection failed:', error);
-      setBackendStatus({ connected: false, message: 'Backend Offline' });
-    }
-  };
+  try {
+    const response = await fetch('/'); // Vite proxy will forward this seamlessly to http://127.0.0.1:8000/
+    const data = await response.json();
+    setBackendStatus({ connected: true, message: data.message });
+  } catch (error) {
+    console.error('FastAPI Backend connection failed:', error);
+    setBackendStatus({ connected: false, message: 'Backend Offline' });
+  }
+};
 
   const loadUser = async () => {
     const user = await getCurrentUser();

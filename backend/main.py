@@ -6,14 +6,10 @@ import math
 
 app = FastAPI()
 
+# Wildcard CORS configuration to instantly resolve local blocking between port 3001 and 8000
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000"
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,9 +24,16 @@ class TranslationRequest(BaseModel):
     landmarks: List[Landmark]
     sign_id: Optional[str] = None
 
+# Health check routes to satisfy frontend connectivity pings
 @app.get("/")
 def read_root():
-    return {"message": "Sign Bridge backend is connected successfully!"}
+    return {"status": "online", "message": "Sign Bridge backend is connected successfully!"}
+
+@app.get("/health")
+@app.get("/api/health")
+@app.get("/api/status")
+def health_check():
+    return {"status": "online", "backend": "active"}
 
 @app.post("/api/translate")
 def translate_gesture(request: TranslationRequest):

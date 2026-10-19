@@ -1,3 +1,6 @@
+// Automatically use your live Render backend URL or fallback to localhost during development
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+
 export const SUPPORTED_SIGNS = [
   { id: 'HELLO', name: 'Hello', category: 'Greeting', emoji: '👋', description: 'Open palm facing forward with all fingers extended.', instructions: 'Raise your dominant hand, extend all 5 fingers straight up with palm facing forward.' },
   { id: 'THANK YOU', name: 'Thank You', category: 'Polite', emoji: '🙏', description: 'Flat palm with fingers together near chin/chest.', instructions: 'Place flat hand fingers together near your chin/chest and move outward smoothly.' },
@@ -21,6 +24,34 @@ export const SUPPORTED_SIGNS = [
   { id: 'GOOD', name: 'Good', category: 'Descriptor', emoji: '✨', description: 'Thumbs-up sign or hand moving from chin down.', instructions: 'Show a clear thumbs-up gesture with all fingers folded.' },
   { id: 'BAD', name: 'Bad', category: 'Descriptor', emoji: '❌', description: 'Thumbs-down gesture or hand turning away from chin.', instructions: 'Show a clear thumbs-down gesture with all fingers folded.' }
 ];
+
+/**
+ * Sends hand landmarks to your live FastAPI backend for translation processing.
+ */
+export async function sendLandmarksToBackend(landmarks, signId = null) {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/translate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        landmarks: landmarks,
+        sign_id: signId
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Failed to connect to backend:", error);
+    return null;
+  }
+}
 
 export function classifyHandLandmarks(landmarks) {
   if (!landmarks || landmarks.length < 21) {
