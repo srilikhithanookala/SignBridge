@@ -11,6 +11,9 @@ import AuthPage from './pages/AuthPage';
 import { getCurrentUser } from './services/supabaseClient';
 import { Eye, X, Server } from 'lucide-react';
 
+// Automatically use your live Render backend URL or fallback for safety
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://signbridge-backend-9ir2.onrender.com";
+
 export default function App() {
   const getTabFromHash = () => {
     const hash = window.location.hash.replace('#', '').trim();
@@ -53,17 +56,17 @@ export default function App() {
     checkBackendConnection();
   }, []);
 
-  // Fetch root endpoint from your running FastAPI server
+  // Fetch root endpoint from your live FastAPI backend server
   const checkBackendConnection = async () => {
-  try {
-    const response = await fetch('/'); // Vite proxy will forward this seamlessly to http://127.0.0.1:8000/
-    const data = await response.json();
-    setBackendStatus({ connected: true, message: data.message });
-  } catch (error) {
-    console.error('FastAPI Backend connection failed:', error);
-    setBackendStatus({ connected: false, message: 'Backend Offline' });
-  }
-};
+    try {
+      const response = await fetch(`${BACKEND_URL}/`);
+      const data = await response.json();
+      setBackendStatus({ connected: true, message: data.message });
+    } catch (error) {
+      console.error('FastAPI Backend connection failed:', error);
+      setBackendStatus({ connected: false, message: 'Backend Offline' });
+    }
+  };
 
   const loadUser = async () => {
     const user = await getCurrentUser();
