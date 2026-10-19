@@ -159,12 +159,41 @@ export async function logoutUser() {
 export async function updateUserProfile(updates) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return null;
+
   const updatedUser = { ...currentUser, ...updates };
+  
+  // 1. Update local storage first
   setStoredItem(STORAGE_KEYS.USER, updatedUser);
 
+  // 2. Sync to Supabase if configured and user is not a guest
   if (isSupabaseConfigured && !updatedUser.isGuest) {
-    await supabase.from('users').upsert(updatedUser);
+    try {
+      // Map and sanitize fields specifically for the Supabase users table schema
+      const userPayload = {
+        id: updatedUser.id,
+        name: updatedUser.name || updatedUser.email?.split('@')[0] || 'SignBridge User',
+        email: updatedUser.email,
+        preferredLanguage: updatedUser.preferredLanguage || 'en-US',
+        speechSpeed: updatedUser.speechSpeed || 1.0,
+        highContrast: updatedUser.highContrast || false,
+        isGuest: false,
+        verifiedAt: updatedUser.verifiedAt || new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('users')
+        .upsert([userPayload], { onConflict: 'id' });
+
+      if (error) {
+        console.error('Failed to sync profile to Supabase users table:', error);
+      } else {
+        console.log('Successfully updated user profile in Supabase:', data);
+      }
+    } catch (err) {
+      console.error('Error during profile sync to Supabase:', err);
+    }
   }
+
   return updatedUser;
 }
 
