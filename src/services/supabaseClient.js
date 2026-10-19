@@ -1,13 +1,13 @@
 /**
  * SignBridge AI - Supabase & Local Storage Service
- * Clean history & dashboard state: No pre-seeded dummy history.
- * History entries appear ONLY when the user actively uses the translator or conversation mode.
+ * Hardcoded cloud credentials for immediate live deployment on Render.
  */
 
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Hardcoded live Supabase Project Credentials
+const SUPABASE_URL = "https://kmimrdkyokiawmfnprsd.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_06ZHnU2lChs4epVucJd1_A_HL8hsa7P"; 
 
 export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
@@ -24,7 +24,7 @@ const STORAGE_KEYS = {
   FEEDBACK: 'signbridge_feedback'
 };
 
-// Clear initial defaults (No dummy data!)
+// Clear initial defaults (No dummy data)
 const DEFAULT_CONVERSATIONS = [];
 const DEFAULT_MESSAGES = [];
 const DEFAULT_FEEDBACK = [];
@@ -58,8 +58,12 @@ function setStoredItem(key, value) {
 
 export async function getCurrentUser() {
   if (isSupabaseConfigured) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) return user;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) return user;
+    } catch (err) {
+      console.error('Error fetching Supabase user:', err);
+    }
   }
   return getStoredItem(STORAGE_KEYS.USER, null);
 }
@@ -67,7 +71,7 @@ export async function getCurrentUser() {
 export async function sendOtpToEmail(email) {
   if (isSupabaseConfigured) {
     const { error } = await supabase.auth.signInWithOtp({ email });
-    if (error) throw error;
+    if (error) console.warn('Supabase OTP send warning/error:', error);
   }
 
   const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -93,12 +97,16 @@ export async function verifyOtpCode(email, enteredCode, extraInfo = {}) {
   const cleanCode = enteredCode.trim();
 
   if (isSupabaseConfigured) {
-    const { data, error } = await supabase.auth.verifyOtp({
-      email: cleanEmail,
-      token: cleanCode,
-      type: 'magiclink'
-    });
-    if (!error && data.user) return data.user;
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: cleanEmail,
+        token: cleanCode,
+        type: 'magiclink'
+      });
+      if (!error && data.user) return data.user;
+    } catch (err) {
+      console.warn('Supabase OTP verify fallback:', err);
+    }
   }
 
   const storedOtpSession = getStoredItem(STORAGE_KEYS.OTP_SESSION, null);
@@ -200,6 +208,10 @@ export async function saveConversation(title, messages) {
   const currentMsgs = getStoredItem(STORAGE_KEYS.MESSAGES, DEFAULT_MESSAGES);
   setStoredItem(STORAGE_KEYS.MESSAGES, [...formattedMessages, ...currentMsgs]);
 
+  if (isSupabaseConfigured) {
+    await supabase.from('conversations').insert([newConv]);
+  }
+
   return newConv;
 }
 
@@ -214,6 +226,20 @@ export async function recordLiveTranslation(signName, sentenceText) {
     timestamp: new Date().toISOString()
   };
   setStoredItem(STORAGE_KEYS.MESSAGES, [newMsg, ...messages]);
+
+  if (isSupabaseConfigured) {
+    const user = await getCurrentUser();
+    if (user) {
+      await supabase.from('translations').insert([
+        {
+          user_id: user.id,
+          sign_id: signName,
+          translated_sentence: sentenceText,
+          created_at: new Date().toISOString()
+        }
+      ]);
+    }
+  }
 }
 
 export async function getConversationMessages(conversationId) {
@@ -225,6 +251,10 @@ export async function deleteConversation(conversationId) {
   const currentConvs = getStoredItem(STORAGE_KEYS.CONVERSATIONS, DEFAULT_CONVERSATIONS);
   const updatedConvs = currentConvs.filter(c => c.id !== conversationId);
   setStoredItem(STORAGE_KEYS.CONVERSATIONS, updatedConvs);
+
+  if (isSupabaseConfigured) {
+    await supabase.from('conversations').delete().eq('id', conversationId);
+  }
   return true;
 }
 
@@ -239,6 +269,11 @@ export async function submitRecognitionFeedback(sign, wasCorrect, userCorrection
 
   const currentFeedback = getStoredItem(STORAGE_KEYS.FEEDBACK, DEFAULT_FEEDBACK);
   setStoredItem(STORAGE_KEYS.FEEDBACK, [newFeedback, ...currentFeedback]);
+
+  if (isSupabaseConfigured) {
+    await supabase.from('feedback').insert([newFeedback]);
+  }
+
   return newFeedback;
 }
 
