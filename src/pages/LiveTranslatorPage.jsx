@@ -9,6 +9,9 @@ import FeedbackModal from '../components/FeedbackModal';
 import { Hands } from '@mediapipe/hands';
 import { Camera as MediaPipeCamera } from '@mediapipe/camera_utils';
 
+// Hardcoded live Render backend URL
+const BACKEND_URL = "https://signbridge-backend-9ir2.onrender.com";
+
 export default function LiveTranslatorPage({ currentUser }) {
   // Camera & Video Refs
   const videoRef = useRef(null);
@@ -56,7 +59,7 @@ export default function LiveTranslatorPage({ currentUser }) {
   // Send Hand Landmarks or Quick Trigger ID to FastAPI Backend
   const sendLandmarksToBackend = async (landmarks = [], triggerSignId = null) => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/translate', {
+      const response = await fetch(`${BACKEND_URL}/api/translate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
