@@ -6,10 +6,16 @@ import math
 
 app = FastAPI()
 
-# Wildcard CORS configuration to instantly resolve local blocking between port 3001 and 8000
+# CORS configuration to allow local development and your live Render frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://signbridge-zdyd.onrender.com",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
