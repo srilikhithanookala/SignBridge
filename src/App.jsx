@@ -11,8 +11,8 @@ import AuthPage from './pages/AuthPage';
 import { getCurrentUser } from './services/supabaseClient';
 import { Eye, X, Server } from 'lucide-react';
 
-// Automatically use your live Render backend URL or fallback for safety
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://signbridge-backend-9ir2.onrender.com";
+// Hardcoded directly to avoid any Vite build-time variable injection bugs
+const BACKEND_URL = "https://signbridge-backend-9ir2.onrender.com";
 
 export default function App() {
   const getTabFromHash = () => {
