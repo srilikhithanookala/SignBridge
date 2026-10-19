@@ -59,7 +59,7 @@ export default function App() {
   // Fetch root endpoint from your live FastAPI backend server
   const checkBackendConnection = async () => {
     try {
-      const response = await fetch(`${BACKEND_URL}/`);
+      const response = await fetch(`${BACKEND_URL}/`); // Ensure no slash before ${BACKEND_URL}
       const data = await response.json();
       setBackendStatus({ connected: true, message: data.message });
     } catch (error) {
@@ -67,7 +67,6 @@ export default function App() {
       setBackendStatus({ connected: false, message: 'Backend Offline' });
     }
   };
-
   const loadUser = async () => {
     const user = await getCurrentUser();
     setCurrentUser(user);
